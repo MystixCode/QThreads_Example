@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+
+from PyQt5 import QtCore, QtWidgets, QtGui, uic
+import sys, time
+
+class QThreadsExample(QtWidgets.QMainWindow):
+    def __init__(self):
+        QtWidgets.QMainWindow.__init__(self)
+        self.ui = uic.loadUi('QThreads_Example.ui',self)
+
+        self.thread={}
+        self.ui.pushButton_1.clicked.connect(self.start_worker_1)
+        self.ui.pushButton_2.clicked.connect(self.stop_worker_1)
+        
+        self.ui.pushButton_3.clicked.connect(self.start_worker_2)
+        self.ui.pushButton_4.clicked.connect(self.stop_worker_2)
+
+    def start_worker_1(self):
+        d = {
+            "t1_value1": self.ui.lineEdit_t1_value1.text(),
+            "t1_value2": self.ui.lineEdit_t1_value2.text(),
+        }
+        self.thread['Thread1'] = ThreadClass(parent=None, index='TestThread1', data=d)
+        self.thread['Thread1'].start()
+        self.thread['Thread1'].write_signal.connect(self.write)
+        self.thread['Thread1'].finished_signal.connect(self.finished)
+
+        self.ui.pushButton_1.setEnabled(False)
+        self.ui.pushButton_2.setEnabled(True)
+        
+    def start_worker_2(self):
+        d = {
+            "t2_value1": self.ui.lineEdit_t2_value1.text(),
+            "t2_value2": self.ui.lineEdit_t2_value2.text(),
+            "t2_value3": self.ui.lineEdit_t2_value3.text(),
+        }
+        self.thread['Thread2'] = ThreadClass(parent=None, index='TestThread2', data=d)
+        self.thread['Thread2'].start()
+        self.thread['Thread2'].write_signal.connect(self.write)
+        self.thread['Thread2'].finished_signal.connect(self.finished)
+
+        self.ui.pushButton_3.setEnabled(False)
+        self.ui.pushButton_4.setEnabled(True)
+        
+    def stop_worker_1(self):
+        self.thread['Thread1'].stop()
+        
+    def stop_worker_2(self):
+        self.thread['Thread2'].stop()
+
+    def write(self, data):
+        index = self.sender().index
+        print(index + ': ' + data)
+        if index == 'TestThread1':
+            current_text= self.ui.textBrowser_1.toPlainText()
+            self.ui.textBrowser_1.setText(current_text + index + ': ' + data + '\n')
+        if index == 'TestThread2':
+            current_text= self.ui.textBrowser_2.toPlainText()
+            self.ui.textBrowser_2.setText(current_text + index + ': ' + data + '\n')
+
+    def finished(self):
+        index = self.sender().index
+        if index == 'TestThread1':
+            self.write('finished')
+            self.ui.pushButton_2.setEnabled(False)
+            self.ui.pushButton_1.setEnabled(True)
+        if index == 'TestThread2':
+            self.write('finished')
+            self.ui.pushButton_4.setEnabled(False)
+            self.ui.pushButton_3.setEnabled(True)
+
+
+class ThreadClass(QtCore.QThread):
+    write_signal = QtCore.pyqtSignal(str)
+    finished_signal = QtCore.pyqtSignal()
+
+    def __init__(self, parent=None,index=0, data=0):
+        super(ThreadClass, self).__init__(parent)
+        self.index=index
+        self.data=data
+
+    def run(self):
+        self.write_signal.emit('Starting thread')
+        if self.index == 'TestThread1':
+            self.write_signal.emit(self.data["t1_value1"])
+            self.write_signal.emit(self.data["t1_value2"])
+            time.sleep(3)
+            self.write_signal.emit('Do stuff here')
+            time.sleep(3)
+            self.finished_signal.emit()
+            
+        if self.index == 'TestThread2':
+            self.write_signal.emit(self.data["t2_value1"])
+            self.write_signal.emit(self.data["t2_value2"])
+            self.write_signal.emit(self.data["t2_value3"])
+            time.sleep(3)
+            self.write_signal.emit('Do stuff here')
+            time.sleep(3)
+            self.finished_signal.emit()
+
+    def stop(self):
+        self.write_signal.emit('Stopping thread')
+        self.finished_signal.emit()
+        self.terminate()
+
+
+app = QtWidgets.QApplication(sys.argv)
+mainWindow = QThreadsExample()
+mainWindow.show()
+sys.exit(app.exec_())
